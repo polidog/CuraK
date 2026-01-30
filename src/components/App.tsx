@@ -239,42 +239,41 @@ export function App() {
   const titleText = ' CuraK ';
   const remainingWidth = Math.max(0, headerContentWidth - titleText.length - 1);
 
+  // Stats text
+  const statsLine1 = `||| ${articles.length} articles`;
+  const statsLine2 = `◎  ~${totalReadingTime}min read`;
+  const statsWidth = Math.max(statsLine1.length, statsLine2.length);
+  const logoWidth = LOGO[0]?.length || 0;
+  const headerInnerWidth = termWidth - 4;
+
   return (
     <Box flexDirection="column">
       {/* ═══ Header ═══ */}
       {/* Top border with title */}
       <Text color={dimCream}>
-        {'┌─' + titleText + '─'.repeat(remainingWidth) + '┐'}
+        {'┌─' + titleText + '─'.repeat(Math.max(0, headerInnerWidth - titleText.length - 1)) + '┐'}
       </Text>
 
-      <Box flexDirection="row">
-        <Text color={dimCream}>│ </Text>
-        <Box flexDirection="row" justifyContent="space-between" width={headerContentWidth}>
-          {/* Logo */}
-          <Box flexDirection="column">
-            {LOGO.map((line, i) => (
-              <Text key={i} color={cream}>{line}</Text>
-            ))}
+      {/* Header content rows */}
+      {LOGO.map((line, i) => {
+        const statsText = i === Math.floor(LOGO.length / 2) - 1 ? statsLine1
+                        : i === Math.floor(LOGO.length / 2) ? statsLine2
+                        : '';
+        const gap = headerInnerWidth - logoWidth - statsText.length;
+        return (
+          <Box key={i}>
+            <Text color={dimCream}>{'│ '}</Text>
+            <Text color={cream}>{line}</Text>
+            <Text color={dimCream}>{' '.repeat(Math.max(1, gap))}</Text>
+            <Text color={cream}>{statsText}</Text>
+            <Text color={dimCream}>{' │'}</Text>
           </Box>
-
-          {/* Stats */}
-          <Box flexDirection="column" justifyContent="center" alignItems="flex-end">
-            <Box>
-              <Text color={dimCream}>||| </Text>
-              <Text color={cream}>{articles.length} articles</Text>
-            </Box>
-            <Box>
-              <Text color={dimCream}>◎  </Text>
-              <Text color={cream}>~{totalReadingTime}min read</Text>
-            </Box>
-          </Box>
-        </Box>
-        <Text color={dimCream}> │</Text>
-      </Box>
+        );
+      })}
 
       {/* Bottom border */}
       <Text color={dimCream}>
-        {'└' + '─'.repeat(headerContentWidth + 2) + '┘'}
+        {'└' + '─'.repeat(headerInnerWidth + 2) + '┘'}
       </Text>
 
       {/* ═══ Main Content ═══ */}
@@ -354,81 +353,67 @@ export function App() {
           })()}
 
           {/* Content */}
-          <Box flexDirection="column" height={mainHeight - 2}>
-            {readerLoading ? (
+          {(() => {
+            const previewColor = showReader ? cream : dimCream;
+            const previewInnerWidth = contentWidth - 4;
+
+            const makeLine = (text: string, textColor: string = cream) => (
               <Box>
-                <Text color={dimCream}>{'│ '}</Text>
-                <Text color={cream}>Loading article... </Text>
-                <Spinner type="dots" />
+                <Text color={previewColor}>{'│ '}</Text>
+                <Text color={textColor}>{text.slice(0, previewInnerWidth).padEnd(previewInnerWidth)}</Text>
+                <Text color={previewColor}>{' │'}</Text>
               </Box>
-            ) : showReader && readerContent ? (
-              <>
-                <Box>
-                  <Text color={cream}>{'│ '}</Text>
-                  <Text color={cream} bold>{readerContent.title.slice(0, contentWidth - 6)}</Text>
-                </Box>
-                {readerContent.byline && (
-                  <Box>
-                    <Text color={cream}>{'│ '}</Text>
-                    <Text color={dimCream}>{readerContent.byline.slice(0, contentWidth - 6)}</Text>
-                  </Box>
-                )}
-                {(() => {
-                  const visibleLines = Math.max(5, mainHeight - 6);
-                  const lines = readerContent.textContent.split('\n');
-                  const displayLines = lines.slice(readerScroll, readerScroll + visibleLines);
-                  return displayLines.map((line, i) => (
+            );
+
+            const emptyLine = () => makeLine('', dimCream);
+
+            if (readerLoading) {
+              return makeLine('Loading article...', cream);
+            }
+
+            if (showReader && readerContent) {
+              const visibleLines = Math.max(5, mainHeight - 4);
+              const lines = readerContent.textContent.split('\n');
+              const displayLines = lines.slice(readerScroll, readerScroll + visibleLines);
+              return (
+                <>
+                  {makeLine(readerContent.title || '', cream)}
+                  {readerContent.byline && makeLine(readerContent.byline, dimCream)}
+                  {displayLines.map((line, i) => (
                     <Box key={i}>
-                      <Text color={cream}>{'│ '}</Text>
-                      <Text color={cream}>{line.slice(0, contentWidth - 6)}</Text>
+                      <Text color={previewColor}>{'│ '}</Text>
+                      <Text color={cream}>{line.slice(0, previewInnerWidth).padEnd(previewInnerWidth)}</Text>
+                      <Text color={previewColor}>{' │'}</Text>
                     </Box>
-                  ));
-                })()}
-              </>
-            ) : showReader && !readerContent ? (
-              <>
-                <Box>
-                  <Text color={dimCream}>{'│ '}</Text>
-                  <Text color="red">Failed to load article</Text>
-                </Box>
-                <Box>
-                  <Text color={dimCream}>{'│ '}</Text>
-                  <Text color={dimCream}>Esc: Back</Text>
-                </Box>
-              </>
-            ) : selectedArticle ? (
-              <>
-                <Box>
-                  <Text color={dimCream}>{'│ '}</Text>
-                  <Text color={cream}>{selectedArticle.title?.slice(0, contentWidth - 6)}</Text>
-                </Box>
-                <Box>
-                  <Text color={dimCream}>{'│ '}</Text>
-                  <Text color={highlight}>{selectedArticle.url?.slice(0, contentWidth - 6)}</Text>
-                </Box>
-                {selectedArticle.tags && selectedArticle.tags.length > 0 && (
-                  <Box>
-                    <Text color={dimCream}>{'│ '}</Text>
-                    {selectedArticle.tags.slice(0, 4).map((tag, i) => (
-                      <Text key={i} color={highlight}>#{tag} </Text>
-                    ))}
-                  </Box>
-                )}
-                <Box>
-                  <Text color={dimCream}>{'│ '}</Text>
-                </Box>
-                <Box>
-                  <Text color={dimCream}>{'│ '}</Text>
-                  <Text color={dimCream}>{selectedArticle.summary?.slice(0, contentWidth - 6) || ''}</Text>
-                </Box>
-              </>
-            ) : (
-              <Box>
-                <Text color={dimCream}>{'│ '}</Text>
-                <Text color={dimCream}>Select an article</Text>
-              </Box>
-            )}
-          </Box>
+                  ))}
+                </>
+              );
+            }
+
+            if (showReader && !readerContent) {
+              return (
+                <>
+                  {makeLine('Failed to load article', 'red')}
+                  {makeLine('Esc: Back', dimCream)}
+                </>
+              );
+            }
+
+            if (selectedArticle) {
+              const tagsText = selectedArticle.tags?.slice(0, 4).map(t => `#${t}`).join(' ') || '';
+              return (
+                <>
+                  {makeLine(selectedArticle.title || '', cream)}
+                  {makeLine(selectedArticle.url || '', highlight)}
+                  {tagsText && makeLine(tagsText, highlight)}
+                  {emptyLine()}
+                  {makeLine(selectedArticle.summary?.slice(0, previewInnerWidth) || '', dimCream)}
+                </>
+              );
+            }
+
+            return makeLine('Select an article', dimCream);
+          })()}
 
           {/* Bottom border */}
           {(() => {
