@@ -1,7 +1,7 @@
 # VHS tape file for CuraK demo
 # Run with: vhs demo.tape
 
-Output assets/demo.gif
+Output assets/curak-demo.gif
 
 Set Shell "bash"
 Set FontSize 14
