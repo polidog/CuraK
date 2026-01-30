@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import { execFile } from 'child_process';
 import type { Article } from '../types/article.js';
@@ -70,6 +70,84 @@ const buildBorderedLines = (
   ];
 };
 
+// Calculate display width (full-width chars = 2, others = 1)
+const getDisplayWidth = (str: string): number => {
+  let width = 0;
+  for (const char of str) {
+    const code = char.charCodeAt(0);
+    if ((code >= 0x1100 && code <= 0x11FF) ||
+        (code >= 0x3000 && code <= 0x9FFF) ||
+        (code >= 0xAC00 && code <= 0xD7AF) ||
+        (code >= 0xF900 && code <= 0xFAFF) ||
+        (code >= 0xFE10 && code <= 0xFE1F) ||
+        (code >= 0xFE30 && code <= 0xFE6F) ||
+        (code >= 0xFF00 && code <= 0xFF60) ||
+        (code >= 0xFFE0 && code <= 0xFFE6)) {
+      width += 2;
+    } else {
+      width += 1;
+    }
+  }
+  return width;
+};
+
+// Truncate string to fit display width
+const truncateToWidth = (str: string, maxWidth: number): string => {
+  let width = 0;
+  let result = '';
+  for (const char of str) {
+    const charWidth = getDisplayWidth(char);
+    if (width + charWidth > maxWidth) {
+      break;
+    }
+    result += char;
+    width += charWidth;
+  }
+  return result;
+};
+
+// Pad string to exact display width
+const padToWidth = (str: string, targetWidth: number): string => {
+  const currentWidth = getDisplayWidth(str);
+  const padding = targetWidth - currentWidth;
+  return str + ' '.repeat(Math.max(0, padding));
+};
+
+// Process text content into wrapped lines
+// Process text content into wrapped and padded lines (pre-computed for performance)
+const processTextContent = (text: string, maxWidth: number): string[] => {
+  const rawLines = text.split('\n');
+  const processedLines: string[] = [];
+
+  for (const line of rawLines) {
+    if (line.length === 0) {
+      // Pre-pad empty lines
+      processedLines.push(' '.repeat(maxWidth));
+      continue;
+    }
+
+    let remaining = line;
+    while (remaining.length > 0) {
+      const truncated = truncateToWidth(remaining, maxWidth);
+      // Pre-pad the line to fixed width
+      processedLines.push(padToWidth(truncated, maxWidth));
+
+      // Remove processed characters
+      let usedChars = 0;
+      let usedWidth = 0;
+      for (const char of remaining) {
+        const charWidth = getDisplayWidth(char);
+        if (usedWidth + charWidth > maxWidth) break;
+        usedChars++;
+        usedWidth += charWidth;
+      }
+      remaining = remaining.slice(usedChars);
+    }
+  }
+
+  return processedLines;
+};
+
 export function App() {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -95,6 +173,9 @@ export function App() {
   });
   const themeNames = Object.keys(themes) as ThemeName[];
 
+  // Mark as read loading state
+  const [markingArticleId, setMarkingArticleId] = useState<string | null>(null);
+
   const termWidth = stdout?.columns || 80;
   const termHeight = stdout?.rows || 24;
 
@@ -103,6 +184,16 @@ export function App() {
   const textColor = theme.text;
   const textDim = theme.textDim;
   const accent = theme.accent;
+  const logoColor = theme.logo;
+  const boxBorder = theme.boxBorder;
+  const titleColor = theme.title;
+  const urlColor = theme.url;
+  const tagsColor = theme.tags;
+  const helpColor = theme.help;
+  const statsColor = theme.stats;
+  const spinnerColor = theme.spinner;
+  const errorColor = theme.error;
+  const successColor = theme.success;
 
   // Layout - use full terminal width
   const contentWidth = termWidth - 2;
@@ -155,12 +246,15 @@ export function App() {
   const markAsRead = async (articleId: string) => {
     const client = getClient();
     if (!client) return;
+    setMarkingArticleId(articleId);
     try {
       await client.markAsRead(articleId);
       setArticles(prev => prev.filter(a => a.id !== articleId));
       setSelectedIndex(i => Math.min(i, Math.max(0, articles.length - 2)));
     } catch (e) {
       // Ignore errors
+    } finally {
+      setMarkingArticleId(null);
     }
   };
 
@@ -245,8 +339,11 @@ export function App() {
 
     if (key.downArrow || input === 'j') {
       if (showModal && readerContent) {
-        const lines = readerContent.textContent.split('\n');
-        const maxScroll = Math.max(0, lines.length - 10);
+        // Estimate max scroll (lines may wrap due to full-width chars, so use generous estimate)
+        const rawLines = readerContent.textContent.split('\n');
+        const estimatedLines = rawLines.length * 3; // Conservative estimate for wrapped lines
+        const contentHeight = termHeight - LOGO.length - 8;
+        const maxScroll = Math.max(0, estimatedLines - contentHeight);
         setReaderScroll(s => Math.min(s + 3, maxScroll));
       } else if (!showModal) {
         setSelectedIndex(i => Math.min(i + 1, articles.length - 1));
@@ -263,8 +360,10 @@ export function App() {
 
     if (showModal && readerContent) {
       if (key.pageDown || input === ' ') {
-        const lines = readerContent.textContent.split('\n');
-        const maxScroll = Math.max(0, lines.length - 10);
+        const rawLines = readerContent.textContent.split('\n');
+        const estimatedLines = rawLines.length * 3;
+        const contentHeight = termHeight - LOGO.length - 8;
+        const maxScroll = Math.max(0, estimatedLines - contentHeight);
         setReaderScroll(s => Math.min(s + 15, maxScroll));
       }
       if (key.pageUp) {
@@ -328,19 +427,19 @@ export function App() {
     if (selectedArticle) {
       // Title
       const title = truncateToWidth(selectedArticle.title || 'Untitled', panelInnerWidth - 2);
-      lines.push({ text: ` ${title}`, color: primary });
+      lines.push({ text: ` ${title}`, color: titleColor });
 
       // URL
       if (selectedArticle.url) {
         const url = truncateToWidth(selectedArticle.url, panelInnerWidth - 2);
-        lines.push({ text: ` ${url}`, color: textDim });
+        lines.push({ text: ` ${url}`, color: urlColor });
       }
 
       // Tags
       if (selectedArticle.tags?.length) {
         const tags = selectedArticle.tags.slice(0, 5).map(t => `#${t}`).join(' ');
         const tagsLine = truncateToWidth(tags, panelInnerWidth - 2);
-        lines.push({ text: ` ${tagsLine}`, color: accent });
+        lines.push({ text: ` ${tagsLine}`, color: tagsColor });
       }
 
       // Reading time
@@ -389,33 +488,42 @@ export function App() {
     <Box flexDirection="row" marginBottom={1}>
       <Box flexDirection="column">
         {LOGO.map((line, i) => (
-          <Text key={i} color={primary}>{line}</Text>
+          <Text key={i} color={logoColor}>{line}</Text>
         ))}
       </Box>
       <Text> </Text>
       <Box flexDirection="column">
-        <Text color={primary}>{detailPanel.topLine}</Text>
+        <Text color={boxBorder}>{detailPanel.topLine}</Text>
         {detailPanel.contentLines.map((line, i) => (
           <Text key={i}>
-            <Text color={primary}>│</Text>
+            <Text color={boxBorder}>│</Text>
             <Text color={line.color}>{line.content}</Text>
-            <Text color={primary}>│</Text>
+            <Text color={boxBorder}>│</Text>
           </Text>
         ))}
-        <Text color={primary}>{detailPanel.bottomLine}</Text>
+        <Text color={boxBorder}>{detailPanel.bottomLine}</Text>
       </Box>
     </Box>
   );
+
+  // Memoize processed lines for reader modal (expensive operation)
+  // Must be before any conditional returns to follow Rules of Hooks
+  const readerWidth = termWidth - 2;
+  const boxInnerWidth = readerWidth - 2;
+  const processedReaderLines = useMemo(() => {
+    if (!readerContent) return [];
+    return processTextContent(readerContent.textContent, boxInnerWidth);
+  }, [readerContent, boxInnerWidth]);
 
   // Loading screen
   if (loading) {
     return (
       <Box flexDirection="column">
         {LOGO.map((line, i) => (
-          <Text key={i} color={primary}>{line}</Text>
+          <Text key={i} color={logoColor}>{line}</Text>
         ))}
         <Text> </Text>
-        <Text color={textDim}>Loading...</Text>
+        <Text color={spinnerColor}>Loading...</Text>
       </Box>
     );
   }
@@ -425,11 +533,11 @@ export function App() {
     return (
       <Box flexDirection="column">
         {LOGO.map((line, i) => (
-          <Text key={i} color={primary}>{line}</Text>
+          <Text key={i} color={logoColor}>{line}</Text>
         ))}
         <Text> </Text>
-        <Text color="red">Error: {error}</Text>
-        <Text color={textDim}>^R: Retry  q: Quit</Text>
+        <Text color={errorColor}>Error: {error}</Text>
+        <Text color={helpColor}>^R: Retry  q: Quit</Text>
       </Box>
     );
   }
@@ -445,7 +553,7 @@ export function App() {
       <Box flexDirection="column">
         {renderHeader()}
         <Box flexDirection="column">
-          <Text color={primary}>{topLine}</Text>
+          <Text color={boxBorder}>{topLine}</Text>
           {themeNames.map((name, idx) => {
             const selected = idx === themeIndex;
             const isCurrent = name === currentTheme;
@@ -457,13 +565,13 @@ export function App() {
             return (
               <Box key={name} flexDirection="column">
                 <Text>
-                  <Text color={primary}>│</Text>
+                  <Text color={boxBorder}>│</Text>
                   <Text color={selected ? primary : textDim} bold={selected}>{paddedLabel}</Text>
-                  <Text color={primary}>│</Text>
+                  <Text color={boxBorder}>│</Text>
                 </Text>
                 {selected && (
                   <Text>
-                    <Text color={primary}>│</Text>
+                    <Text color={boxBorder}>│</Text>
                     <Text>  </Text>
                     <Text color={t.primary}>████</Text>
                     <Text> </Text>
@@ -472,30 +580,29 @@ export function App() {
                     <Text color={t.accent}>████</Text>
                     <Text> </Text>
                     <Text color={t.textDim}>████</Text>
-                    <Text>{''.padEnd(modalInnerWidth - 24, ' ')}</Text>
-                    <Text color={primary}>│</Text>
+                    <Text>{''.padEnd(modalInnerWidth - 21, ' ')}</Text>
+                    <Text color={boxBorder}>│</Text>
                   </Text>
                 )}
               </Box>
             );
           })}
-          <Text color={primary}>{bottomLine}</Text>
+          <Text color={boxBorder}>{bottomLine}</Text>
         </Box>
-        <Text color={textDim}>j/k:Select  Enter:Apply  q:Cancel</Text>
+        <Text color={helpColor}>j/k:Select  Enter:Apply  q:Cancel</Text>
       </Box>
     );
   }
 
   // Modal view
   if (showModal) {
-    const readerWidth = termWidth - 2;
     const readerHeight = termHeight - LOGO.length - 6;
 
     if (readerLoading) {
       return (
         <Box flexDirection="column">
           {renderHeader()}
-          <Text color={textColor}>Loading article...</Text>
+          <Text color={spinnerColor}>Loading article...</Text>
         </Box>
       );
     }
@@ -504,13 +611,13 @@ export function App() {
       return (
         <Box flexDirection="column">
           {renderHeader()}
-          <Text color="red">Failed to load article</Text>
-          <Text color={textDim}>Press Esc to go back</Text>
+          <Text color={errorColor}>Failed to load article</Text>
+          <Text color={helpColor}>Press Esc to go back</Text>
         </Box>
       );
     }
 
-    const textLines = readerContent.textContent.split('\n');
+    const textLines = processedReaderLines;
     const contentHeight = readerHeight - 2; // minus top and bottom border
     const visibleLines = textLines.slice(readerScroll, readerScroll + contentHeight);
     const totalLines = textLines.length;
@@ -518,19 +625,14 @@ export function App() {
       ? `[${readerScroll + 1}-${Math.min(readerScroll + contentHeight, totalLines)}/${totalLines}]`
       : '';
 
-    const boxInnerWidth = readerWidth - 2;
     const readerTopLine = `╭─ Reader ${scrollInfo} ${'─'.repeat(Math.max(0, boxInnerWidth - 10 - scrollInfo.length))}╮`;
     const readerBottomLine = `╰${'─'.repeat(boxInnerWidth)}╯`;
 
-    // Pad content lines to fixed width
-    const paddedLines = visibleLines.map(line => {
-      const truncated = line.slice(0, boxInnerWidth - 2);
-      return truncated.padEnd(boxInnerWidth, ' ');
-    });
-
-    // Fill remaining height with empty lines
+    // Lines are already padded in processTextContent, just fill remaining height
+    const emptyLine = ' '.repeat(boxInnerWidth);
+    const paddedLines = [...visibleLines];
     while (paddedLines.length < contentHeight) {
-      paddedLines.push(' '.repeat(boxInnerWidth));
+      paddedLines.push(emptyLine);
     }
 
     return (
@@ -539,18 +641,18 @@ export function App() {
         {renderHeader()}
 
         {/* Content Box */}
-        <Text color={primary}>{readerTopLine}</Text>
+        <Text color={boxBorder}>{readerTopLine}</Text>
         {paddedLines.map((line, i) => (
           <Text key={i}>
-            <Text color={primary}>│</Text>
+            <Text color={boxBorder}>│</Text>
             <Text color={textColor}>{line}</Text>
-            <Text color={primary}>│</Text>
+            <Text color={boxBorder}>│</Text>
           </Text>
         ))}
-        <Text color={primary}>{readerBottomLine}</Text>
+        <Text color={boxBorder}>{readerBottomLine}</Text>
 
         {/* Footer */}
-        <Text color={textDim}>
+        <Text color={helpColor}>
           j/k:Scroll  Space:Page  o:Open  Esc:Back
         </Text>
       </Box>
@@ -572,7 +674,7 @@ export function App() {
       {renderHeader()}
 
       {/* Stats */}
-      <Text color={textDim}>{statsText}</Text>
+      <Text color={statsColor}>{statsText}</Text>
 
       {/* Article List */}
       {(() => {
@@ -625,21 +727,32 @@ export function App() {
         };
 
         if (visibleArticles.length === 0) {
-          articleLines.push({ text: padToWidth(' No articles', boxInnerWidth), color: textDim });
+          articleLines.push({ text: padToWidth(' No articles', boxInnerWidth), color: textDim, isMarking: false, articleId: '' });
         } else {
           visibleArticles.forEach((article, i) => {
             const idx = startIdx + i;
             const selected = idx === selectedIndex;
+            const isMarking = article.id === markingArticleId;
             const fullTitle = article.title || 'Untitled';
             const marker = selected ? '>' : ' ';
-            // " > " = 3 chars prefix
-            const title = truncateToWidth(fullTitle, boxInnerWidth - 3);
-            const line = padToWidth(` ${marker} ${title}`, boxInnerWidth);
+            // For marking items, leave space for spinner (2 chars) + space
+            const titleWidth = isMarking ? boxInnerWidth - 18 : boxInnerWidth - 3;
+            const title = truncateToWidth(fullTitle, titleWidth);
+            const line = isMarking
+              ? padToWidth(title, titleWidth)
+              : padToWidth(` ${marker} ${title}`, boxInnerWidth);
 
+            const itemColor = isMarking
+              ? 'black'
+              : selected
+                ? (theme.listItemSelected || primary)
+                : (theme.listItem || textDim);
             articleLines.push({
               text: line,
-              color: selected ? primary : textDim,
-              bold: selected
+              color: itemColor,
+              bold: selected,
+              isMarking,
+              articleId: article.id || ''
             });
           });
         }
@@ -649,22 +762,28 @@ export function App() {
 
         return (
           <Box flexDirection="column">
-            <Text color={primary}>{topLine}</Text>
+            <Text color={boxBorder}>{topLine}</Text>
             {articleLines.map((line, i) => (
-              <Text key={i}>
-                <Text color={primary}>│</Text>
-                <Text color={line.color} bold={line.bold}>{line.text}</Text>
-                <Text color={primary}>│</Text>
-              </Text>
+              <Box key={i}>
+                <Text color={boxBorder}>│</Text>
+                {line.isMarking ? (
+                  <Text backgroundColor={accent} color="black">
+                    {' '}<Spinner type="dots" />{' '}✓ Marking done...{' '}{line.text}
+                  </Text>
+                ) : (
+                  <Text color={line.color} bold={line.bold}>{line.text}</Text>
+                )}
+                <Text color={boxBorder}>│</Text>
+              </Box>
             ))}
-            <Text color={primary}>{bottomLine}</Text>
+            <Text color={boxBorder}>{bottomLine}</Text>
           </Box>
         );
       })()}
 
       {/* Footer */}
       <Box marginTop={1}>
-        <Text color={textDim}>
+        <Text color={helpColor}>
           j/k:Navigate  Enter:Read  m:Done  o:Open  T:Theme  ^R:Refresh  q:Quit
         </Text>
       </Box>
