@@ -1,6 +1,6 @@
 # CuraK
 
-CuraQ CLI/TUI client built with OpenTUI.
+CuraQ CLI/TUI client built with Ink.
 
 ## Requirements
 
@@ -26,6 +26,13 @@ bun dist/index.js setup
 
 # Show current configuration
 bun dist/index.js config
+
+# Set theme (interactive selector or by name)
+bun dist/index.js theme
+bun dist/index.js theme dracula
+
+# Set start screen
+bun dist/index.js start-screen unread
 
 # Clear saved token
 bun dist/index.js clear
@@ -53,48 +60,37 @@ Token is saved to `~/.config/curak/config.json`
 
 ## Keybindings
 
-### Global
-| Key | Action |
-|-----|--------|
-| Tab | Switch tabs |
-| 1 | Go to Articles |
-| 2 | Go to Discovery |
-| 3 | Go to Search |
-| q | Quit |
-
-### Articles List
+### Article List
 | Key | Action |
 |-----|--------|
 | j/↓ | Move down |
 | k/↑ | Move up |
 | Enter | View article |
-| r | Mark as read |
-| d | Delete article |
-| Shift+R | Refresh list |
+| m | Mark as done |
+| o | Open in browser |
+| T | Theme selector |
+| ^R | Refresh list |
+| q | Quit |
 
-### Article Detail
+### Reader View
 | Key | Action |
 |-----|--------|
-| ESC/q | Go back |
-| j/↓ | Scroll down |
-| k/↑ | Scroll up |
+| j/k | Scroll |
+| Space/PgDn | Page down |
+| PgUp | Page up |
+| o | Open in browser |
+| Esc | Back to list |
 
-### Search
+### Theme Selector
 | Key | Action |
 |-----|--------|
-| Enter | Execute search / Select article |
-| / | Focus search input |
-| m | Toggle search mode (keyword/semantic) |
-| j/k | Navigate results |
-| ESC | Unfocus input |
+| j/k | Select theme |
+| Enter | Apply |
+| q | Cancel |
 
-### Discovery
-| Key | Action |
-|-----|--------|
-| j/↓ | Move down |
-| k/↑ | Move up |
-| x | Dismiss item |
-| Shift+R | Refresh list |
+## Themes
+
+Available themes: default, ocean, forest, sunset, mono, sakura, nord, dracula, solarized, cyberpunk, coffee, tokyoMidnight, kanagawa, pc98
 
 ## Development
 
