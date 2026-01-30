@@ -25,7 +25,7 @@ export const themes: Record<ThemeName, ThemeColors> = {
     read: 'green',
     border: 'cyan',
     text: 'white',
-    textDim: 'gray',
+    textDim: '#888888',
   },
   ocean: {
     primary: 'blue',
@@ -35,7 +35,7 @@ export const themes: Record<ThemeName, ThemeColors> = {
     read: 'blue',
     border: 'blue',
     text: 'white',
-    textDim: 'gray',
+    textDim: '#888888',
   },
   forest: {
     primary: 'green',
@@ -45,7 +45,7 @@ export const themes: Record<ThemeName, ThemeColors> = {
     read: 'green',
     border: 'green',
     text: 'white',
-    textDim: 'gray',
+    textDim: '#888888',
   },
   sunset: {
     primary: 'magenta',
@@ -55,7 +55,7 @@ export const themes: Record<ThemeName, ThemeColors> = {
     read: 'red',
     border: 'magenta',
     text: 'white',
-    textDim: 'gray',
+    textDim: '#888888',
   },
   mono: {
     primary: 'white',
@@ -65,7 +65,7 @@ export const themes: Record<ThemeName, ThemeColors> = {
     read: 'gray',
     border: 'gray',
     text: 'white',
-    textDim: 'gray',
+    textDim: '#888888',
   },
 };
 
