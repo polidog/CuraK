@@ -1,7 +1,7 @@
 # VHS tape file for CuraK demo
 # Run with: vhs demo.tape
 
-Output assets/curak-demo.gif
+Output assets/curak-demo-v2.gif
 
 Set Shell "bash"
 Set FontSize 14
@@ -49,6 +49,24 @@ Type "j"
 Sleep 300ms
 Type "j"
 Sleep 500ms
+
+# Open an article
+Enter
+Sleep 2s
+
+# Scroll in reader
+Type "j"
+Sleep 200ms
+Type "j"
+Sleep 200ms
+Type "j"
+Sleep 200ms
+Type "j"
+Sleep 500ms
+
+# Go back to list
+Escape
+Sleep 1s
 
 # Quit
 Type "q"

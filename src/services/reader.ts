@@ -23,7 +23,9 @@ export async function fetchReadableContent(url: string): Promise<ReaderContent |
     }
 
     const html = await response.text();
-    const dom = new JSDOM(html, { url });
+    // Remove <style> tags to avoid JSDOM CSS parsing errors
+    const htmlWithoutStyles = html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+    const dom = new JSDOM(htmlWithoutStyles, { url });
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
 
