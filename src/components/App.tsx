@@ -24,7 +24,7 @@ const LOGO_CONTENT = [
 ];
 const LOGO_WIDTH = 41;
 const BOX_PADDING_X = 2; // horizontal padding
-const BOX_PADDING_Y = 1; // vertical padding (empty lines)
+const BOX_PADDING_Y = 2; // vertical padding (empty lines)
 const BOX_INNER_WIDTH = LOGO_WIDTH + BOX_PADDING_X * 2;
 
 // Build bordered logo
@@ -55,7 +55,7 @@ const buildBorderedLines = (
   padding: number = 1
 ): string[] => {
   const innerWidth = width - 2;
-  const topLine = `╭─ ${label} ${'─'.repeat(Math.max(0, innerWidth - label.length - 4))}╮`;
+  const topLine = `╭─ ${label} ${'─'.repeat(Math.max(0, innerWidth - label.length - 3))}╮`;
   const bottomLine = `╰${'─'.repeat(innerWidth)}╯`;
   const pad = ' '.repeat(padding);
 
@@ -74,8 +74,22 @@ const buildBorderedLines = (
 const getDisplayWidth = (str: string): number => {
   let width = 0;
   for (const char of str) {
-    const code = char.charCodeAt(0);
-    if ((code >= 0x1100 && code <= 0x11FF) ||
+    const code = char.codePointAt(0) || 0;
+    // Zero-width characters (variation selectors, combining marks, etc.)
+    if ((code >= 0xFE00 && code <= 0xFE0F) ||   // Variation Selectors
+        (code >= 0x200B && code <= 0x200F) ||   // Zero-width spaces
+        (code >= 0x2028 && code <= 0x202F) ||   // Line/paragraph separators
+        (code >= 0x2060 && code <= 0x206F)) {   // Word joiner, etc.
+      width += 0;
+    // Emoji ranges (most common)
+    } else if ((code >= 0x1F300 && code <= 0x1F9FF) ||  // Misc Symbols, Emoticons, etc.
+        (code >= 0x2600 && code <= 0x26FF) ||    // Misc Symbols
+        (code >= 0x2700 && code <= 0x27BF) ||    // Dingbats
+        (code >= 0x23E9 && code <= 0x23FF) ||    // Misc technical symbols (⏱ etc.)
+        (code >= 0x1F600 && code <= 0x1F64F) ||  // Emoticons
+        (code >= 0x1F680 && code <= 0x1F6FF) ||  // Transport symbols
+        // CJK and full-width characters
+        (code >= 0x1100 && code <= 0x11FF) ||
         (code >= 0x3000 && code <= 0x9FFF) ||
         (code >= 0xAC00 && code <= 0xD7AF) ||
         (code >= 0xF900 && code <= 0xFAFF) ||
@@ -83,6 +97,9 @@ const getDisplayWidth = (str: string): number => {
         (code >= 0xFE30 && code <= 0xFE6F) ||
         (code >= 0xFF00 && code <= 0xFF60) ||
         (code >= 0xFFE0 && code <= 0xFFE6)) {
+      width += 2;
+    } else if (code > 0xFFFF) {
+      // Surrogate pair (astral plane) - likely emoji, count as 2
       width += 2;
     } else {
       width += 1;
@@ -381,27 +398,6 @@ export function App() {
     const panelInnerWidth = panelWidth - 2;
     const logoHeight = LOGO.length;
 
-    // Calculate display width (full-width chars = 2, others = 1)
-    const getDisplayWidth = (str: string): number => {
-      let width = 0;
-      for (const char of str) {
-        const code = char.charCodeAt(0);
-        if ((code >= 0x1100 && code <= 0x11FF) ||
-            (code >= 0x3000 && code <= 0x9FFF) ||
-            (code >= 0xAC00 && code <= 0xD7AF) ||
-            (code >= 0xF900 && code <= 0xFAFF) ||
-            (code >= 0xFE10 && code <= 0xFE1F) ||
-            (code >= 0xFE30 && code <= 0xFE6F) ||
-            (code >= 0xFF00 && code <= 0xFF60) ||
-            (code >= 0xFFE0 && code <= 0xFFE6)) {
-          width += 2;
-        } else {
-          width += 1;
-        }
-      }
-      return width;
-    };
-
     const truncateToWidth = (str: string, maxWidth: number): string => {
       let width = 0;
       let result = '';
@@ -484,27 +480,40 @@ export function App() {
   const detailPanel = buildDetailPanel();
 
   // Header component for reuse
-  const renderHeader = () => (
-    <Box flexDirection="row" marginBottom={1}>
-      <Box flexDirection="column">
-        {LOGO.map((line, i) => (
-          <Text key={i} color={logoColor}>{line}</Text>
-        ))}
+  const renderHeader = () => {
+    return (
+    <Box flexDirection="column">
+      <Box flexDirection="row">
+        <Box flexDirection="column">
+          {/* Full logo */}
+          {LOGO.map((line, i) => (
+            <Text key={i} color={logoColor}>{line}</Text>
+          ))}
+        </Box>
+        <Text> </Text>
+        <Box flexDirection="column">
+          <Text color={boxBorder}>{detailPanel.topLine}</Text>
+          {detailPanel.contentLines.map((line, i) => (
+            <Text key={i}>
+              <Text color={boxBorder}>│</Text>
+              <Text color={line.color}>{line.content}</Text>
+              <Text color={boxBorder}>│</Text>
+            </Text>
+          ))}
+          <Text color={boxBorder}>{detailPanel.bottomLine}</Text>
+        </Box>
       </Box>
-      <Text> </Text>
-      <Box flexDirection="column">
-        <Text color={boxBorder}>{detailPanel.topLine}</Text>
-        {detailPanel.contentLines.map((line, i) => (
-          <Text key={i}>
-            <Text color={boxBorder}>│</Text>
-            <Text color={line.color}>{line.content}</Text>
-            <Text color={boxBorder}>│</Text>
-          </Text>
-        ))}
-        <Text color={boxBorder}>{detailPanel.bottomLine}</Text>
+      {/* Stats line - separate from boxes */}
+      <Box marginTop={0} marginBottom={1}>
+        <Text color={accent} bold> ● </Text>
+        <Text color={accent} bold>{articles.length} unread</Text>
+        <Text color={textDim}>  |  </Text>
+        <Text color={accent} bold>~{totalReadingTime} min</Text>
+        <Text color={textDim}> total reading time</Text>
       </Box>
     </Box>
   );
+  };
 
   // Memoize processed lines for reader modal (expensive operation)
   // Must be before any conditional returns to follow Rules of Hooks
@@ -666,15 +675,10 @@ export function App() {
   ));
   const visibleArticles = articles.slice(startIdx, startIdx + listHeight);
 
-  const statsText = `${articles.length} articles  ~${totalReadingTime}min`;
-
   return (
     <Box flexDirection="column">
       {/* Header: Logo + Detail Panel */}
       {renderHeader()}
-
-      {/* Stats */}
-      <Text color={statsColor}>{statsText}</Text>
 
       {/* Article List */}
       {(() => {
@@ -682,30 +686,8 @@ export function App() {
         const titleMaxWidth = boxInnerWidth - 5; // "│ ► " + title + " │"
         const articleLines: { text: string; color: string; bold?: boolean }[] = [];
 
-        // Calculate display width (full-width chars = 2, others = 1)
-        const getDisplayWidth = (str: string): number => {
-          let width = 0;
-          for (const char of str) {
-            const code = char.charCodeAt(0);
-            // CJK and full-width characters
-            if ((code >= 0x1100 && code <= 0x11FF) ||
-                (code >= 0x3000 && code <= 0x9FFF) ||
-                (code >= 0xAC00 && code <= 0xD7AF) ||
-                (code >= 0xF900 && code <= 0xFAFF) ||
-                (code >= 0xFE10 && code <= 0xFE1F) ||
-                (code >= 0xFE30 && code <= 0xFE6F) ||
-                (code >= 0xFF00 && code <= 0xFF60) ||
-                (code >= 0xFFE0 && code <= 0xFFE6)) {
-              width += 2;
-            } else {
-              width += 1;
-            }
-          }
-          return width;
-        };
-
-        // Truncate string to fit display width
-        const truncateToWidth = (str: string, maxWidth: number): string => {
+        // Truncate string to fit display width (with ellipsis)
+        const truncateWithEllipsis = (str: string, maxWidth: number): string => {
           let width = 0;
           let result = '';
           for (const char of str) {
@@ -719,13 +701,6 @@ export function App() {
           return result;
         };
 
-        // Pad string to exact display width
-        const padToWidth = (str: string, targetWidth: number): string => {
-          const currentWidth = getDisplayWidth(str);
-          const padding = targetWidth - currentWidth;
-          return str + ' '.repeat(Math.max(0, padding));
-        };
-
         if (visibleArticles.length === 0) {
           articleLines.push({ text: padToWidth(' No articles', boxInnerWidth), color: textDim, isMarking: false, articleId: '' });
         } else {
@@ -737,7 +712,7 @@ export function App() {
             const marker = selected ? '>' : ' ';
             // For marking items, leave space for spinner (2 chars) + space
             const titleWidth = isMarking ? boxInnerWidth - 18 : boxInnerWidth - 3;
-            const title = truncateToWidth(fullTitle, titleWidth);
+            const title = truncateWithEllipsis(fullTitle, titleWidth);
             const line = isMarking
               ? padToWidth(title, titleWidth)
               : padToWidth(` ${marker} ${title}`, boxInnerWidth);
@@ -757,7 +732,7 @@ export function App() {
           });
         }
 
-        const topLine = `╭─ Articles ${'─'.repeat(Math.max(0, boxInnerWidth - 12))}╮`;
+        const topLine = `╭─ Articles ${'─'.repeat(Math.max(0, boxInnerWidth - 11))}╮`;
         const bottomLine = `╰${'─'.repeat(boxInnerWidth)}╯`;
 
         return (
