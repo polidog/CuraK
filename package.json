@@ -1,0 +1,38 @@
+{
+  "name": "curak",
+  "version": "1.0.0",
+  "description": "CuraQ CLI/TUI client built with OpenTUI",
+  "main": "src/index.tsx",
+  "type": "module",
+  "bin": {
+    "curak": "./src/index.tsx"
+  },
+  "scripts": {
+    "build": "bun build src/index.tsx --outdir dist --target node",
+    "start": "bun src/index.tsx",
+    "setup": "bun src/index.tsx setup",
+    "dev": "bun src/index.tsx"
+  },
+  "keywords": [
+    "curaq",
+    "tui",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "ink": "^6.6.0",
+    "ink-spinner": "^5.0.0",
+    "jsdom": "^27.4.0",
+    "react": "^19.0.0",
+    "react-devtools-core": "^7.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^27.0.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.0.0"
+  }
+}
