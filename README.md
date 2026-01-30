@@ -1,9 +1,5 @@
 # CuraK
 
-<p align="center">
-  <img src="assets/demo.gif" alt="CuraK Demo" width="800">
-</p>
-
 CuraQ CLI/TUI client built with Ink.
 
 ## Requirements
