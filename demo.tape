@@ -50,24 +50,6 @@ Sleep 300ms
 Type "j"
 Sleep 500ms
 
-# Open an article
-Enter
-Sleep 2s
-
-# Scroll in reader
-Type "j"
-Sleep 200ms
-Type "j"
-Sleep 200ms
-Type "j"
-Sleep 200ms
-Type "j"
-Sleep 500ms
-
-# Go back to list
-Escape
-Sleep 1s
-
 # Quit
 Type "q"
 Sleep 500ms
