@@ -11,7 +11,7 @@ Set Theme "Dracula"
 Set Padding 20
 
 # Start the application
-Type "node dist/index.js"
+Type "NODE_ENV=production node dist/index.js"
 Enter
 Sleep 2s
 
