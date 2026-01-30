@@ -5,7 +5,6 @@ Output assets/demo.gif
 
 Set Shell "bash"
 Set FontSize 14
-Set FontFamily "Noto Sans CJK JP"
 Set Width 1200
 Set Height 700
 Set Theme "Dracula"
