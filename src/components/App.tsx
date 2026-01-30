@@ -32,21 +32,24 @@ export function App() {
   const theme = getThemeColors();
   const [articles, setArticles] = useState<Article[]>([]);
 
-  // Reader mode state
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
   const [readerContent, setReaderContent] = useState<ReaderContent | null>(null);
   const [readerLoading, setReaderLoading] = useState(false);
-  const [showReader, setShowReader] = useState(false);
   const [readerScroll, setReaderScroll] = useState(0);
 
   const termWidth = stdout?.columns || 80;
   const termHeight = stdout?.rows || 24;
 
+  // Colors from theme
+  const primary = theme.primary;
+  const textColor = theme.text;
+  const textDim = theme.textDim;
+  const accent = theme.accent;
+
   // Layout
-  const headerHeight = 9; // Logo + label + border
-  const mainHeight = Math.max(6, termHeight - headerHeight - 3);
-  const listWidth = Math.max(26, Math.floor(termWidth * 0.38));
-  const contentWidth = termWidth - listWidth - 1;
-  const listVisibleCount = Math.max(3, mainHeight - 2);
+  const contentWidth = Math.min(termWidth - 4, 80);
+  const listHeight = Math.min(termHeight - 12, 20);
 
   // Stats
   const totalReadingTime = articles.reduce((sum, a) => sum + (a.reading_time_minutes || 0), 0);
@@ -80,7 +83,7 @@ export function App() {
 
   const loadReaderContent = async (url: string) => {
     setReaderLoading(true);
-    setShowReader(true);
+    setShowModal(true);
     setReaderScroll(0);
     try {
       const content = await fetchReadableContent(url);
@@ -106,16 +109,24 @@ export function App() {
 
   useInput((input, key) => {
     if (input === 'q') {
-      exit();
-    }
-
-    if (key.escape || (showReader && input === 'b')) {
-      setShowReader(false);
-      setReaderContent(null);
+      if (showModal) {
+        setShowModal(false);
+        setReaderContent(null);
+      } else {
+        exit();
+      }
       return;
     }
 
-    if (input === 'r' && key.ctrl && !showReader) {
+    if (key.escape) {
+      if (showModal) {
+        setShowModal(false);
+        setReaderContent(null);
+      }
+      return;
+    }
+
+    if (input === 'r' && key.ctrl && !showModal) {
       loadArticles();
       return;
     }
@@ -128,7 +139,7 @@ export function App() {
       return;
     }
 
-    if (input === 'm' && !showReader) {
+    if (input === 'm' && !showModal) {
       const article = articles[selectedIndex];
       if (article?.id) {
         markAsRead(article.id);
@@ -136,7 +147,7 @@ export function App() {
       return;
     }
 
-    if (key.return && !showReader) {
+    if (key.return && !showModal) {
       const article = articles[selectedIndex];
       if (article?.url) {
         loadReaderContent(article.url);
@@ -145,24 +156,24 @@ export function App() {
     }
 
     if (key.downArrow || input === 'j') {
-      if (showReader && readerContent) {
+      if (showModal && readerContent) {
         const lines = readerContent.textContent.split('\n');
         const maxScroll = Math.max(0, lines.length - 10);
         setReaderScroll(s => Math.min(s + 3, maxScroll));
-      } else {
+      } else if (!showModal) {
         setSelectedIndex(i => Math.min(i + 1, articles.length - 1));
       }
     }
 
     if (key.upArrow || input === 'k') {
-      if (showReader && readerContent) {
+      if (showModal && readerContent) {
         setReaderScroll(s => Math.max(s - 3, 0));
-      } else {
+      } else if (!showModal) {
         setSelectedIndex(i => Math.max(i - 1, 0));
       }
     }
 
-    if (showReader && readerContent) {
+    if (showModal && readerContent) {
       if (key.pageDown || input === ' ') {
         const lines = readerContent.textContent.split('\n');
         const maxScroll = Math.max(0, lines.length - 10);
@@ -176,270 +187,156 @@ export function App() {
 
   const selectedArticle = articles[selectedIndex];
 
-  // Retro terminal colors (sepia/cream on dark)
-  const cream = '#d4be98';
-  const dimCream = '#a89984';
-  const highlight = '#e8c77b';
-
   // Loading screen
   if (loading) {
-    const loadingWidth = 50;
-    const loadingTitle = ' CuraK ';
-    const loadingRemaining = loadingWidth - loadingTitle.length - 3;
     return (
       <Box flexDirection="column">
-        <Text color={dimCream}>{'┌─' + loadingTitle + '─'.repeat(loadingRemaining) + '┐'}</Text>
         {LOGO.map((line, i) => (
-          <Box key={i}>
-            <Text color={dimCream}>{'│ '}</Text>
-            <Text color={cream}>{line.padEnd(loadingWidth - 4)}</Text>
-            <Text color={dimCream}>{' │'}</Text>
-          </Box>
+          <Text key={i} color={primary}>{line}</Text>
         ))}
-        <Box>
-          <Text color={dimCream}>{'│ '}</Text>
-          <Text color={cream}>Loading... </Text>
-          <Spinner type="dots" />
-        </Box>
-        <Text color={dimCream}>{'└' + '─'.repeat(loadingWidth - 2) + '┘'}</Text>
+        <Text> </Text>
+        <Text color={textDim}>Loading...</Text>
       </Box>
     );
   }
 
   // Error screen
   if (error) {
-    const errorWidth = 50;
-    const errorTitle = ' CuraK ';
-    const errorRemaining = errorWidth - errorTitle.length - 3;
     return (
       <Box flexDirection="column">
-        <Text color={dimCream}>{'┌─' + errorTitle + '─'.repeat(errorRemaining) + '┐'}</Text>
         {LOGO.map((line, i) => (
-          <Box key={i}>
-            <Text color={dimCream}>{'│ '}</Text>
-            <Text color={cream}>{line.padEnd(errorWidth - 4)}</Text>
-            <Text color={dimCream}>{' │'}</Text>
-          </Box>
+          <Text key={i} color={primary}>{line}</Text>
         ))}
-        <Box>
-          <Text color={dimCream}>{'│ '}</Text>
-          <Text color="red">Error: {error}</Text>
-        </Box>
-        <Box>
-          <Text color={dimCream}>{'│ '}</Text>
-          <Text color={dimCream}>^R:Retry  q:Quit</Text>
-        </Box>
-        <Text color={dimCream}>{'└' + '─'.repeat(errorWidth - 2) + '┘'}</Text>
+        <Text> </Text>
+        <Text color="red">Error: {error}</Text>
+        <Text color={textDim}>^R: Retry  q: Quit</Text>
       </Box>
     );
   }
 
-  // Header border with title
-  const headerContentWidth = termWidth - 4; // Account for border chars and padding
-  const titleText = ' CuraK ';
-  const remainingWidth = Math.max(0, headerContentWidth - titleText.length - 1);
+  // Modal view
+  if (showModal) {
+    const readerWidth = Math.min(termWidth - 4, 80);
+    const readerHeight = termHeight - 8;
 
-  // Stats text
-  const statsLine1 = `||| ${articles.length} articles`;
-  const statsLine2 = `◎  ~${totalReadingTime}min read`;
-  const statsWidth = Math.max(statsLine1.length, statsLine2.length);
-  const logoWidth = LOGO[0]?.length || 0;
-  const headerInnerWidth = termWidth - 4;
+    if (readerLoading) {
+      return (
+        <Box flexDirection="column">
+          <Text color={textColor}>Loading article...</Text>
+        </Box>
+      );
+    }
+
+    if (!readerContent) {
+      return (
+        <Box flexDirection="column">
+          <Text color="red">Failed to load article</Text>
+          <Text color={textDim}>Press Esc to go back</Text>
+        </Box>
+      );
+    }
+
+    const textLines = readerContent.textContent.split('\n');
+    const visibleLines = textLines.slice(readerScroll, readerScroll + readerHeight);
+    const totalLines = textLines.length;
+    const scrollInfo = totalLines > readerHeight
+      ? `[${readerScroll + 1}-${Math.min(readerScroll + readerHeight, totalLines)}/${totalLines}]`
+      : '';
+
+    return (
+      <Box flexDirection="column">
+        {/* Title */}
+        <Text color={primary} bold>{readerContent.title}</Text>
+        {readerContent.byline && (
+          <Text color={textDim}>{readerContent.byline}</Text>
+        )}
+        <Text color={textDim}>{'─'.repeat(Math.min(50, readerWidth))}</Text>
+        <Text> </Text>
+
+        {/* Content */}
+        {visibleLines.map((line, i) => (
+          <Text key={i} color={textColor}>{line.slice(0, readerWidth)}</Text>
+        ))}
+
+        {/* Footer */}
+        <Text> </Text>
+        <Text color={textDim}>
+          {scrollInfo}  j/k:Scroll  Space:Page  o:Open  Esc:Back
+        </Text>
+      </Box>
+    );
+  }
+
+  // Calculate scroll window for articles
+  const startIdx = Math.max(0, Math.min(
+    selectedIndex - Math.floor(listHeight / 2),
+    articles.length - listHeight
+  ));
+  const visibleArticles = articles.slice(startIdx, startIdx + listHeight);
+
+  const statsText = `${articles.length} articles  ~${totalReadingTime}min`;
 
   return (
     <Box flexDirection="column">
-      {/* ═══ Header ═══ */}
-      {/* Top border with title */}
-      <Text color={dimCream}>
-        {'┌─' + titleText + '─'.repeat(Math.max(0, headerInnerWidth - titleText.length - 1)) + '┐'}
-      </Text>
-
-      {/* Header content rows */}
-      {LOGO.map((line, i) => {
-        const statsText = i === Math.floor(LOGO.length / 2) - 1 ? statsLine1
-                        : i === Math.floor(LOGO.length / 2) ? statsLine2
-                        : '';
-        const gap = headerInnerWidth - logoWidth - statsText.length;
-        return (
-          <Box key={i}>
-            <Text color={dimCream}>{'│ '}</Text>
-            <Text color={cream}>{line}</Text>
-            <Text color={dimCream}>{' '.repeat(Math.max(1, gap))}</Text>
-            <Text color={cream}>{statsText}</Text>
-            <Text color={dimCream}>{' │'}</Text>
-          </Box>
-        );
-      })}
-
-      {/* Bottom border */}
-      <Text color={dimCream}>
-        {'└' + '─'.repeat(headerInnerWidth + 2) + '┘'}
-      </Text>
-
-      {/* ═══ Main Content ═══ */}
-      <Box flexDirection="row">
-        {/* Articles List */}
-        <Box width={listWidth} flexDirection="column">
-          {/* Top border with title */}
-          {(() => {
-            const articlesTitle = ` Articles (${articles.length}) `;
-            const innerWidth = listWidth - 2;
-            const remaining = Math.max(0, innerWidth - articlesTitle.length - 1);
-            const listColor = showReader ? dimCream : cream;
-            return (
-              <Text color={listColor}>
-                {'┌─' + articlesTitle + '─'.repeat(remaining) + '┐'}
-              </Text>
-            );
-          })()}
-
-          {/* Article items */}
-          {(() => {
-            const startIdx = Math.max(0, Math.min(selectedIndex - Math.floor(listVisibleCount / 2), articles.length - listVisibleCount));
-            const endIdx = Math.min(startIdx + listVisibleCount, articles.length);
-            const visibleArticles = articles.slice(startIdx, endIdx);
-            const listColor = showReader ? dimCream : cream;
-            const innerWidth = listWidth - 4;
-
-            if (visibleArticles.length === 0) {
-              return (
-                <Text color={listColor}>
-                  {'│ ' + 'No articles'.padEnd(innerWidth) + ' │'}
-                </Text>
-              );
-            }
-
-            return visibleArticles.map((article, i) => {
-              const idx = startIdx + i;
-              const selected = idx === selectedIndex;
-              const title = (article.title || 'Untitled').slice(0, innerWidth - 2);
-              const prefix = selected ? '► ' : '  ';
-              const content = (prefix + title).padEnd(innerWidth);
-
-              return (
-                <Box key={`${article.id}-${idx}`}>
-                  <Text color={listColor}>{'│ '}</Text>
-                  <Text color={selected ? cream : dimCream}>{content}</Text>
-                  <Text color={listColor}>{' │'}</Text>
-                </Box>
-              );
-            });
-          })()}
-
-          {/* Bottom border */}
-          {(() => {
-            const listColor = showReader ? dimCream : cream;
-            return (
-              <Text color={listColor}>
-                {'└' + '─'.repeat(listWidth - 2) + '┘'}
-              </Text>
-            );
-          })()}
-        </Box>
-
-        {/* Preview / Reader */}
-        <Box width={contentWidth} flexDirection="column">
-          {/* Top border with title */}
-          {(() => {
-            const previewTitle = showReader ? ' Reader ' : ' Preview ';
-            const innerWidth = contentWidth - 2;
-            const remaining = Math.max(0, innerWidth - previewTitle.length - 1);
-            const previewColor = showReader ? cream : dimCream;
-            return (
-              <Text color={previewColor}>
-                {'┌─' + previewTitle + '─'.repeat(remaining) + '┐'}
-              </Text>
-            );
-          })()}
-
-          {/* Content */}
-          {(() => {
-            const previewColor = showReader ? cream : dimCream;
-            const previewInnerWidth = contentWidth - 4;
-
-            const makeLine = (text: string, textColor: string = cream) => (
-              <Box>
-                <Text color={previewColor}>{'│ '}</Text>
-                <Text color={textColor}>{text.slice(0, previewInnerWidth).padEnd(previewInnerWidth)}</Text>
-                <Text color={previewColor}>{' │'}</Text>
-              </Box>
-            );
-
-            const emptyLine = () => makeLine('', dimCream);
-
-            if (readerLoading) {
-              return makeLine('Loading article...', cream);
-            }
-
-            if (showReader && readerContent) {
-              const visibleLines = Math.max(5, mainHeight - 4);
-              const lines = readerContent.textContent.split('\n');
-              const displayLines = lines.slice(readerScroll, readerScroll + visibleLines);
-              return (
-                <>
-                  {makeLine(readerContent.title || '', cream)}
-                  {readerContent.byline && makeLine(readerContent.byline, dimCream)}
-                  {displayLines.map((line, i) => (
-                    <Box key={i}>
-                      <Text color={previewColor}>{'│ '}</Text>
-                      <Text color={cream}>{line.slice(0, previewInnerWidth).padEnd(previewInnerWidth)}</Text>
-                      <Text color={previewColor}>{' │'}</Text>
-                    </Box>
-                  ))}
-                </>
-              );
-            }
-
-            if (showReader && !readerContent) {
-              return (
-                <>
-                  {makeLine('Failed to load article', 'red')}
-                  {makeLine('Esc: Back', dimCream)}
-                </>
-              );
-            }
-
-            if (selectedArticle) {
-              const tagsText = selectedArticle.tags?.slice(0, 4).map(t => `#${t}`).join(' ') || '';
-              return (
-                <>
-                  {makeLine(selectedArticle.title || '', cream)}
-                  {makeLine(selectedArticle.url || '', highlight)}
-                  {tagsText && makeLine(tagsText, highlight)}
-                  {emptyLine()}
-                  {makeLine(selectedArticle.summary?.slice(0, previewInnerWidth) || '', dimCream)}
-                </>
-              );
-            }
-
-            return makeLine('Select an article', dimCream);
-          })()}
-
-          {/* Bottom border */}
-          {(() => {
-            const previewColor = showReader ? cream : dimCream;
-            return (
-              <Text color={previewColor}>
-                {'└' + '─'.repeat(contentWidth - 2) + '┘'}
-              </Text>
-            );
-          })()}
-        </Box>
+      {/* Header */}
+      <Box flexDirection="column" marginBottom={1}>
+        {LOGO.map((line, i) => (
+          <Text key={i} color={primary}>{line}</Text>
+        ))}
+        <Text color={textDim}>{statsText}</Text>
       </Box>
 
-      {/* ═══ Commands ═══ */}
-      <Box paddingX={1}>
-        <Text color={dimCream}>└─ </Text>
-        {showReader ? (
-          <Text color={cream}>
-            j/k:Scroll  Space:Page  Esc:Back  o:Open  q:Quit
-          </Text>
+      {/* Article List */}
+      <Box flexDirection="column">
+        {visibleArticles.length === 0 ? (
+          <Text color={textDim}>  No articles</Text>
         ) : (
-          <Text color={cream}>
-            j/k:Navigate  Enter:Read  m:Done  o:Open  ^R:Refresh  q:Quit
-          </Text>
+          visibleArticles.map((article, i) => {
+            const idx = startIdx + i;
+            const selected = idx === selectedIndex;
+            const maxWidth = contentWidth - 10;
+            const fullTitle = article.title || 'Untitled';
+            const title = fullTitle.length > maxWidth
+              ? fullTitle.slice(0, maxWidth - 3) + '...'
+              : fullTitle;
+            const readingTime = article.reading_time_minutes
+              ? `${article.reading_time_minutes}min`
+              : '';
+
+            if (selected) {
+              return (
+                <Box key={article.id || idx} flexDirection="column" marginY={0}>
+                  <Text color={primary}>
+                    {' ► '}<Text bold>{title}</Text>
+                  </Text>
+                  {article.url && (
+                    <Text color={textDim}>
+                    {'   '}{article.url.slice(0, maxWidth)}
+                    </Text>
+                  )}
+                  {(article.tags?.length || readingTime) && (
+                    <Text color={accent}>
+                    {'   '}{article.tags?.slice(0, 3).map(t => `#${t}`).join(' ')}  {readingTime}
+                    </Text>
+                  )}
+                </Box>
+              );
+            }
+
+            return (
+              <Text key={article.id || idx} color={textDim}>
+                {'   '}{title}
+              </Text>
+            );
+          })
         )}
-        <Text color={dimCream}> ─┘</Text>
+      </Box>
+
+      {/* Footer */}
+      <Box marginTop={1}>
+        <Text color={textDim}>
+          j/k:Navigate  Enter:Read  m:Done  o:Open  ^R:Refresh  q:Quit
+        </Text>
       </Box>
     </Box>
   );
