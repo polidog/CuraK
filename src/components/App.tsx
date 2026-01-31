@@ -423,7 +423,7 @@ export function App() {
       return;
     }
 
-    if (input === 'r' && key.ctrl && !showModal) {
+    if (input === 'R' && !showModal) {
       loadArticles();
       return;
     }
