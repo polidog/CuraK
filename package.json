@@ -1,6 +1,6 @@
 {
   "name": "curak",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "CuraQ CLI/TUI client - A retro terminal UI for managing articles",
   "main": "dist/index.js",
   "type": "module",
