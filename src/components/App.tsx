@@ -7,6 +7,9 @@ import { initClient, getClient } from '../api/client.js';
 import { fetchReadableContent, type ReaderContent } from '../services/reader.js';
 import Spinner from 'ink-spinner';
 
+declare const __APP_VERSION__: string;
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
+
 const openInBrowser = (url: string) => {
   const platform = process.platform;
   const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
@@ -14,7 +17,7 @@ const openInBrowser = (url: string) => {
 };
 
 // ASCII Logo with rounded border
-const LOGO_LABEL = 'CuraQ cli client';
+const LOGO_LABEL = `CuraK v${APP_VERSION}`;
 const LOGO_CONTENT = [
   ' ██████╗██╗   ██╗██████╗  █████╗ ██╗  ██╗',
   '██╔════╝██║   ██║██╔══██╗██╔══██╗██║ ██╔╝',

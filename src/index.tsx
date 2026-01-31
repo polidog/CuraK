@@ -1,7 +1,8 @@
-#!/usr/bin/env bun
+import React from 'react';
 import { render } from 'ink';
 import { App } from './components/App.js';
 import { ThemeSelector } from './components/ThemeSelector.js';
+import { TokenSetup } from './components/TokenSetup.js';
 import {
   getToken,
   hasToken,
@@ -136,10 +137,18 @@ Environment Variables:
 
   // Check for token before starting
   if (!hasToken()) {
-    console.log('No API token configured.\n');
-    console.log('Run "curak setup" to configure your token');
-    console.log('Or set the CURAQ_MCP_TOKEN environment variable');
-    process.exit(1);
+    // Show setup screen
+    let shouldStartApp = false;
+    const { waitUntilExit: waitForSetup } = render(
+      <TokenSetup onComplete={(success) => {
+        shouldStartApp = success;
+      }} />
+    );
+    await waitForSetup();
+
+    if (!shouldStartApp) {
+      return;
+    }
   }
 
   // Start the TUI
