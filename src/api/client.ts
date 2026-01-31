@@ -79,6 +79,14 @@ export class CuraQClient {
       method: 'POST',
     });
   }
+
+  async createArticle(url: string): Promise<Article> {
+    const response = await this.request<{ article: Article }>('/api/v1/articles', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    });
+    return response.article;
+  }
 }
 
 let clientInstance: CuraQClient | null = null;

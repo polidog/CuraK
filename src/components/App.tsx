@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useApp, useInput, useStdout } from 'ink';
+import TextInput from 'ink-text-input';
 import { execFile } from 'child_process';
 import type { Article } from '../types/article.js';
 import { getToken, getThemeColors, themes, setTheme, getTheme, type ThemeName } from '../config/token.js';
@@ -14,6 +15,34 @@ const openInBrowser = (url: string) => {
   const platform = process.platform;
   const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
   execFile(cmd, [url]);
+};
+
+const getClipboardText = (): Promise<string> => {
+  return new Promise((resolve) => {
+    const platform = process.platform;
+    let cmd: string;
+    let args: string[];
+
+    if (platform === 'darwin') {
+      cmd = 'pbpaste';
+      args = [];
+    } else if (platform === 'win32') {
+      cmd = 'powershell';
+      args = ['-command', 'Get-Clipboard'];
+    } else {
+      // Linux - use xclip
+      cmd = 'xclip';
+      args = ['-selection', 'clipboard', '-o'];
+    }
+
+    execFile(cmd, args, (error, stdout) => {
+      if (error) {
+        resolve('');
+        return;
+      }
+      resolve(stdout.trim());
+    });
+  });
 };
 
 // ASCII Logo with rounded border
@@ -196,6 +225,12 @@ export function App() {
   // Mark as read loading state
   const [markingArticleId, setMarkingArticleId] = useState<string | null>(null);
 
+  // Add article modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addUrl, setAddUrl] = useState('');
+  const [addStatus, setAddStatus] = useState<'input' | 'submitting' | 'success' | 'error'>('input');
+  const [addError, setAddError] = useState<string | null>(null);
+
   const termWidth = stdout?.columns || 80;
   const termHeight = stdout?.rows || 24;
 
@@ -278,7 +313,67 @@ export function App() {
     }
   };
 
+  const isValidUrl = (url: string): boolean => {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
+  const handleAddArticle = async () => {
+    const trimmedUrl = addUrl.trim();
+    if (!trimmedUrl) {
+      setAddError('URL is required');
+      setAddStatus('error');
+      return;
+    }
+    if (!isValidUrl(trimmedUrl)) {
+      setAddError('Invalid URL format');
+      setAddStatus('error');
+      return;
+    }
+
+    const client = getClient();
+    if (!client) {
+      setAddError('No API client');
+      setAddStatus('error');
+      return;
+    }
+
+    setAddStatus('submitting');
+    setAddError(null);
+    try {
+      await client.createArticle(trimmedUrl);
+      setAddStatus('success');
+      setTimeout(() => {
+        setShowAddModal(false);
+        setAddUrl('');
+        setAddStatus('input');
+        setAddError(null);
+        loadArticles();
+      }, 1000);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : 'Failed to add article');
+      setAddStatus('error');
+    }
+  };
+
   useInput((input, key) => {
+    // Add article modal controls
+    if (showAddModal) {
+      if (key.escape) {
+        setShowAddModal(false);
+        setAddUrl('');
+        setAddStatus('input');
+        setAddError(null);
+        return;
+      }
+      // Don't process other keys here - TextInput handles them
+      return;
+    }
+
     // Theme modal controls
     if (showThemeModal) {
       if (input === 'q' || key.escape) {
@@ -346,6 +441,22 @@ export function App() {
       if (article?.id) {
         markAsRead(article.id);
       }
+      return;
+    }
+
+    // Open add article modal
+    if (input === 'a' && !showModal) {
+      setShowAddModal(true);
+      setAddStatus('input');
+      setAddError(null);
+      // Try to get URL from clipboard
+      getClipboardText().then((text) => {
+        if (isValidUrl(text)) {
+          setAddUrl(text);
+        } else {
+          setAddUrl('');
+        }
+      });
       return;
     }
 
@@ -606,6 +717,74 @@ export function App() {
     );
   }
 
+  // Add article modal
+  if (showAddModal) {
+    const modalWidth = 52;
+    const modalInnerWidth = modalWidth - 2;
+    const topLine = `╭─ Add Article ${'─'.repeat(modalInnerWidth - 14)}╮`;
+    const bottomLine = `╰${'─'.repeat(modalInnerWidth)}╯`;
+    const emptyLine = `│${' '.repeat(modalInnerWidth)}│`;
+
+    return (
+      <Box flexDirection="column">
+        {renderHeader()}
+        <Box flexDirection="column">
+          <Text color={boxBorder}>{topLine}</Text>
+          <Text color={boxBorder}>{emptyLine}</Text>
+          {addStatus === 'submitting' ? (
+            <>
+              <Text>
+                <Text color={boxBorder}>│</Text>
+                <Text color={spinnerColor}> <Spinner type="dots" /> Adding article...</Text>
+                <Text>{' '.repeat(Math.max(0, modalInnerWidth - 21))}</Text>
+                <Text color={boxBorder}>│</Text>
+              </Text>
+            </>
+          ) : addStatus === 'success' ? (
+            <>
+              <Text>
+                <Text color={boxBorder}>│</Text>
+                <Text color={successColor}> ✓ Article added successfully!</Text>
+                <Text>{' '.repeat(Math.max(0, modalInnerWidth - 30))}</Text>
+                <Text color={boxBorder}>│</Text>
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text>
+                <Text color={boxBorder}>│</Text>
+                <Text color={textColor}> Enter article URL:</Text>
+                <Text>{' '.repeat(Math.max(0, modalInnerWidth - 19))}</Text>
+                <Text color={boxBorder}>│</Text>
+              </Text>
+              <Text>
+                <Text color={boxBorder}>│</Text>
+                <Text color={textColor}> </Text>
+                <TextInput
+                  value={addUrl}
+                  onChange={setAddUrl}
+                  onSubmit={handleAddArticle}
+                  placeholder="https://..."
+                />
+              </Text>
+              {addError && (
+                <Text>
+                  <Text color={boxBorder}>│</Text>
+                  <Text color={errorColor}> {addError}</Text>
+                  <Text>{' '.repeat(Math.max(0, modalInnerWidth - addError.length - 2))}</Text>
+                  <Text color={boxBorder}>│</Text>
+                </Text>
+              )}
+            </>
+          )}
+          <Text color={boxBorder}>{emptyLine}</Text>
+          <Text color={boxBorder}>{bottomLine}</Text>
+        </Box>
+        <Text color={helpColor}>Enter:Submit  Esc:Cancel</Text>
+      </Box>
+    );
+  }
+
   // Modal view
   if (showModal) {
     const readerHeight = termHeight - LOGO.length - 6;
@@ -762,7 +941,7 @@ export function App() {
       {/* Footer */}
       <Box marginTop={1}>
         <Text color={helpColor}>
-          j/k:Navigate  Enter:Read  m:Done  o:Open  T:Theme  ^R:Refresh  q:Quit
+          j/k:Navigate  Enter:Read  a:Add  m:Done  o:Open  T:Theme  ^R:Refresh  q:Quit
         </Text>
       </Box>
     </Box>
