@@ -25,10 +25,14 @@ jobs:
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Verify versions
         run: |
           echo "Node version: $(node -v)"
           echo "pnpm version: $(pnpm -v)"
+          echo "Bun version: $(bun -v)"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
