@@ -4,99 +4,104 @@
   <img src="assets/curak-demo-v2.gif" alt="CuraK Demo" width="800">
 </p>
 
-CuraQ CLI/TUI client built with Ink.
+Ink で構築された CuraQ CLI/TUI クライアント。
 
-## Requirements
+## 必要要件
 
-- Bun (https://bun.sh)
-- CuraQ API token
+- Node.js 18以上
+- CuraQ API トークン
 
-## Installation
+## インストール
+
+### npm でグローバルインストール
+
+```bash
+npm install -g curak
+```
+
+### ソースからビルド
 
 ```bash
 pnpm install
 pnpm build
 ```
 
-## Usage
+## 使い方
 
-### Commands
-
-```bash
-# Setup API token (saved to ~/.config/curak/config.json)
-pnpm setup
-# or
-bun dist/index.js setup
-
-# Show current configuration
-bun dist/index.js config
-
-# Set theme (interactive selector or by name)
-bun dist/index.js theme
-bun dist/index.js theme dracula
-
-# Set start screen
-bun dist/index.js start-screen unread
-
-# Clear saved token
-bun dist/index.js clear
-
-# Show help
-bun dist/index.js help
-
-# Start the TUI application
-pnpm start
-# or
-bun dist/index.js
-```
-
-### Set token via environment variable
-
-Environment variable takes precedence over saved config:
+### コマンド
 
 ```bash
-CURAQ_MCP_TOKEN=your_token_here pnpm start
+# API トークンの設定（~/.config/curak/config.json に保存）
+curak setup
+
+# 現在の設定を表示
+curak config
+
+# テーマを設定（インタラクティブ選択または名前指定）
+curak theme
+curak theme dracula
+
+# スタート画面を設定
+curak start-screen unread
+
+# 保存されたトークンをクリア
+curak clear
+
+# ヘルプを表示
+curak help
+
+# TUI アプリケーションを起動
+curak
 ```
 
-### Token storage
+### 環境変数でトークンを設定
 
-Token is saved to `~/.config/curak/config.json`
+環境変数は保存された設定より優先されます：
 
-## Keybindings
+```bash
+CURAQ_MCP_TOKEN=your_token_here curak
+```
 
-### Article List
-| Key | Action |
+### トークンの保存場所
+
+トークンは `~/.config/curak/config.json` に保存されます。
+
+## キーバインド
+
+### 記事リスト
+| キー | アクション |
 |-----|--------|
-| j/↓ | Move down |
-| k/↑ | Move up |
-| Enter | View article |
-| m | Mark as done |
-| o | Open in browser |
-| T | Theme selector |
-| ^R | Refresh list |
-| q | Quit |
+| j/↓ | 下に移動 |
+| k/↑ | 上に移動 |
+| Enter | 記事を表示 |
+| m | 既読にする |
+| o | ブラウザで開く |
+| a | 記事を追加 |
+| T | テーマ選択 |
+| ^R | リストを更新 |
+| q | 終了 |
 
-### Reader View
-| Key | Action |
+### リーダービュー
+| キー | アクション |
 |-----|--------|
-| j/k | Scroll |
-| Space/PgDn | Page down |
-| PgUp | Page up |
-| o | Open in browser |
-| Esc | Back to list |
+| j/k | スクロール |
+| Space/PgDn | ページダウン |
+| PgUp | ページアップ |
+| o | ブラウザで開く |
+| Esc | リストに戻る |
 
-### Theme Selector
-| Key | Action |
+### テーマ選択
+| キー | アクション |
 |-----|--------|
-| j/k | Select theme |
-| Enter | Apply |
-| q | Cancel |
+| j/k | テーマを選択 |
+| Enter | 適用 |
+| q | キャンセル |
 
-## Themes
+## テーマ
 
-Available themes: default, ocean, forest, sunset, mono, sakura, nord, dracula, solarized, cyberpunk, coffee, tokyoMidnight, kanagawa, pc98
+利用可能なテーマ: default, ocean, forest, sunset, mono, sakura, nord, dracula, solarized, cyberpunk, coffee, tokyoMidnight, kanagawa, pc98
 
-## Development
+## 開発
 
 ```bash
 pnpm dev
